@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.DigiDex" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Tema principal de la app (sin barra de título) -->
+    <style name="Theme.DigiDex" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowActionBar">true</item>
+        <item name="colorPrimary">#16164B</item>
+        <item name="android:statusBarColor">#16164B</item>
+        <item name="android:navigationBarColor">#16164B</item>
+    </style>
+
+    <!-- Tema para la pantalla splash nativa -->
+    <style name="Theme.DigiDex.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#16164B</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenIconBackgroundColor">#16164B</item>
+        <item name="postSplashScreenTheme">@style/Theme.DigiDex</item>
+    </style>
+
 </resources>

@@ -41,7 +41,7 @@ fun DigimonGridScreen(digimons: List<Digimon>, onClick: (Digimon) -> Unit) {
                     modifier = Modifier
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(Color.Gray)
+                        .background(Color.DarkGray)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(

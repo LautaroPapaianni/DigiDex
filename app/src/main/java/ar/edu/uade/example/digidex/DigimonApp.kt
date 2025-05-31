@@ -11,14 +11,15 @@ fun DigimonApp() {
     val navController = rememberNavController()
     val viewModel = remember { DigimonViewModel() }
 
-    NavHost(navController, startDestination = "list") {
-        composable("list") {
-            DigimonGridScreen(viewModel.digimonList) { selectedDigimon ->
-                navController.navigate("detail/${selectedDigimon.name}")
-            }
-
+    NavHost(navController, startDestination = "splash") {
+        composable("splash") {
+            SplashScreen(navController, viewModel)
         }
-
+        composable("list") {
+            DigimonGridScreen(viewModel.digimonList) { digimon ->
+                navController.navigate("detail/${digimon.name}")
+            }
+        }
         composable("detail/{name}") { backStackEntry ->
             val name = backStackEntry.arguments?.getString("name") ?: ""
             DigimonDetailScreen(name = name, viewModel = viewModel, navController = navController)
