@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "388462547529",
+    "project_id": "digidex-cd82e",
+    "storage_bucket": "digidex-cd82e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:388462547529:android:0fa3e394cb0f230e72e598",
+        "android_client_info": {
+          "package_name": "ar.edu.uade.example.digidex"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "388462547529-hd5es5a252rcnmoec16k2biq61pva7f7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "ar.edu.uade.example.digidex",
+            "certificate_hash": "ac234be6fd3a72ddc2ccb8376f4e04b5930ef5d5"
+          }
+        },
+        {
+          "client_id": "388462547529-e2umci2svalgubj1tq0do9m186crmq5v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANvRD4yrjnkLRb314rE65gHZ-Xk3cIb1c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "388462547529-e2umci2svalgubj1tq0do9m186crmq5v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -85,74 +85,99 @@ init {
     }
 }
 
-    suspend fun getDigimonDetails(digimonName: String): DapiDigimonResponse? {
-        // 1. Override manual
-        digimonNameOverrides[digimonName]?.let { overrideName ->
-            Log.d("DigimonVM", "Usando override para $digimonName → $overrideName")
+suspend fun getDigimonDetails(digimonName: String): DapiDigimonResponse? {
+    // 1. Override manual
+    digimonNameOverrides[digimonName]?.let { overrideName ->
+        Log.d("DigimonVM", "Usando override para $digimonName → $overrideName")
+        return try {
+            DapiApi.retrofitService.getDigimonByName(overrideName)
+        } catch (e: Exception) {
+            Log.e("DigimonVM", "Error al obtener override $overrideName", e)
+            null
+        }
+    }
+
+    val normalized = normalizeName(digimonName)
+    var page = 0
+    var bestMatch: DapiDigimonSummary? = null
+    var bestDistance = Int.MAX_VALUE
+
+    while (true) {
+        try {
+            val response = DapiApi.retrofitService.getDigimonPage(page)
+
+            for (digimon in response.content) {
+                val norm = normalizeName(digimon.name)
+
+                // Coincidencia exacta → salir
+                if (norm == normalized) {
+                    Log.d("DigimonVM", "Match exacto en página $page: ${digimon.name}")
+                    return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
+                }
+
+                // Si no es exacto, ver si es el más parecido hasta ahora
+                val dist = damerauLevenshtein(normalized, norm)
+                if (dist < bestDistance) {
+                    bestDistance = dist
+                    bestMatch = digimon
+                }
+            }
+
+            if (response.pageable.nextPage.isNullOrEmpty()) break
+            page++
+
+        } catch (e: Exception) {
+            Log.e("DigimonVM", "Error buscando $digimonName en página $page", e)
+            break
+        }
+    }
+
+    // Si hubo un match aproximado suficientemente bueno
+    if (bestMatch != null) {
+        val maxLen = maxOf(normalized.length, normalizeName(bestMatch.name).length)
+        val similarity = 1.0 - (bestDistance.toDouble() / maxLen)
+        Log.d("DigimonVM", "Mejor match aproximado: ${bestMatch.name} (score: $similarity)")
+
+        if (similarity >= 0.74) {
             return try {
-                DapiApi.retrofitService.getDigimonByName(overrideName)
+                DapiApi.retrofitService.getDigimonById(bestMatch.id.toString())
             } catch (e: Exception) {
-                Log.e("DigimonVM", "Error al obtener override $overrideName", e)
+                Log.e("DigimonVM", "Error cargando detalles de ${bestMatch.name}", e)
                 null
             }
         }
-
-        val normalized = normalizeName(digimonName)
-        var page = 0
-        var bestMatch: DapiDigimonSummary? = null
-        var bestDistance = Int.MAX_VALUE
-
-        while (true) {
-            try {
-                val response = DapiApi.retrofitService.getDigimonPage(page)
-
-                for (digimon in response.content) {
-                    val norm = normalizeName(digimon.name)
-
-                    // Coincidencia exacta → salir
-                    if (norm == normalized) {
-                        Log.d("DigimonVM", "Match exacto en página $page: ${digimon.name}")
-                        return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
-                    }
-
-                    // Si no es exacto, ver si es el más parecido hasta ahora
-                    val dist = damerauLevenshtein(normalized, norm)
-                    if (dist < bestDistance) {
-                        bestDistance = dist
-                        bestMatch = digimon
-                    }
-                }
-
-                if (response.pageable.nextPage.isNullOrEmpty()) break
-                page++
-
-            } catch (e: Exception) {
-                Log.e("DigimonVM", "Error buscando $digimonName en página $page", e)
-                break
-            }
-        }
-
-        // Si hubo un match aproximado suficientemente bueno
-        if (bestMatch != null) {
-            val maxLen = maxOf(normalized.length, normalizeName(bestMatch.name).length)
-            val similarity = 1.0 - (bestDistance.toDouble() / maxLen)
-            Log.d("DigimonVM", "Mejor match aproximado: ${bestMatch.name} (score: $similarity)")
-
-            if (similarity >= 0.74) {
-                return try {
-                    DapiApi.retrofitService.getDigimonById(bestMatch.id.toString())
-                } catch (e: Exception) {
-                    Log.e("DigimonVM", "Error cargando detalles de ${bestMatch.name}", e)
-                    null
-                }
-            }
-        }
-
-        Log.d("DigimonVM", "No se encontró $digimonName en ninguna página")
-        return null
     }
 
+    Log.d("DigimonVM", "No se encontró $digimonName en ninguna página")
+    return null
+}
 
+
+suspend fun filterList(level: String?) {
+    digimonList = if (level.isNullOrEmpty()) {
+        DigimonApi.retrofitService.getAllDigimons() // o tu lista original
+    } else {
+        digimonList.filter { it.level.equals(level, ignoreCase = true) }
+    }
+}
+
+fun sort(by: String, ascending: Boolean = true) {
+    digimonList = when (by) {
+        "name" -> {
+            if (ascending) digimonList.sortedBy { it.name }
+            else digimonList.sortedByDescending { it.name }
+        }
+        "level" -> {
+            if (ascending) digimonList.sortedBy { it.level }
+            else digimonList.sortedByDescending { it.level }
+        }
+        else -> digimonList
+    }
+}
+
+fun logout() {
+    com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+}
 
 
 
