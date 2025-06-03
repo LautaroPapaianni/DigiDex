@@ -1,4 +1,4 @@
-package ar.edu.uade.example.digidex
+package ar.edu.uade.example.digidex.data.model
 
 data class DapiDigimonResponse(
     val id: Int,

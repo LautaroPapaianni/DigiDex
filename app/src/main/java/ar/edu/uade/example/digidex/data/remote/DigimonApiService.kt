@@ -1,4 +1,4 @@
-import ar.edu.uade.example.digidex.Digimon
+import ar.edu.uade.example.digidex.data.model.Digimon
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET

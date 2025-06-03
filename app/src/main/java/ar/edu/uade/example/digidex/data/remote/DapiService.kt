@@ -1,5 +1,7 @@
-package ar.edu.uade.example.digidex
+package ar.edu.uade.example.digidex.data.remote
 
+import ar.edu.uade.example.digidex.data.model.DapiDigimonListResponse
+import ar.edu.uade.example.digidex.data.model.DapiDigimonResponse
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET

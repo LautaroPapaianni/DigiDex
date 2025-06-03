@@ -1,4 +1,4 @@
-package ar.edu.uade.example.digidex
+package ar.edu.uade.example.digidex.ui.screen.detail
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -18,6 +18,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel
+import ar.edu.uade.example.digidex.data.model.DapiDigimonResponse
 
 
 @Composable

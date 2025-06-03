@@ -1,4 +1,6 @@
-package ar.edu.uade.example.digidex
+@file:Suppress("DEPRECATION")
+
+package ar.edu.uade.example.digidex.ui.screen.auth
 
 import android.app.Activity
 import android.util.Log
@@ -16,6 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import ar.edu.uade.example.digidex.R
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -94,7 +97,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                 .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(30.dp))
             Button(
                 onClick = {
                     val signInIntent = googleSignInClient.signInIntent

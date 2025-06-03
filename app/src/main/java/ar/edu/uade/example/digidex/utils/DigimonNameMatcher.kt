@@ -1,4 +1,4 @@
-package ar.edu.uade.example.digidex
+package ar.edu.uade.example.digidex.utils
 
 // Algoritmo para normalizar y emparejar nombres de Digimon entre APIs
 

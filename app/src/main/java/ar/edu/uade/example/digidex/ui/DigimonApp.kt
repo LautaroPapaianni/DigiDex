@@ -1,4 +1,4 @@
-package ar.edu.uade.example.digidex
+package ar.edu.uade.example.digidex.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -9,6 +9,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel
+import ar.edu.uade.example.digidex.data.model.Digimon
+import ar.edu.uade.example.digidex.ui.screen.auth.AuthScreen
+import ar.edu.uade.example.digidex.ui.screen.detail.DigimonDetailScreen
+import ar.edu.uade.example.digidex.ui.screen.list.MainListScreen
+import ar.edu.uade.example.digidex.ui.screen.splash.SplashScreen
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
@@ -20,17 +26,17 @@ fun DigimonApp() {
 
 
     NavHost(navController = navController,
-        startDestination = if (isAuthenticated) "list" else "auth") {
+        startDestination = if (isAuthenticated) "splash" else "auth") {
         composable("auth") {
             AuthScreen {
                 isAuthenticated = true
-                navController.navigate("list") {
+                navController.navigate("splash") {
                     popUpTo("auth") { inclusive = true }
                 }
             }
         }
         composable("splash") {
-            SplashScreen(navController, viewModel)
+            SplashScreen(navController = navController, viewModel = viewModel)
         }
         composable("list") {
             MainListScreen(
