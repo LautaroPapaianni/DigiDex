@@ -9,11 +9,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun DigimonApp() {
     val navController = rememberNavController()
-    var isAuthenticated by remember { mutableStateOf(false) }
+    val auth = FirebaseAuth.getInstance()
+    var isAuthenticated by remember { mutableStateOf(auth.currentUser != null) }
     val viewModel: DigimonViewModel = viewModel()
 
 

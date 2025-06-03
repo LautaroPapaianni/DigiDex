@@ -8,60 +8,93 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import kotlin.system.exitProcess
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainListScreen(viewModel: DigimonViewModel, onClick: (Digimon) -> Unit, onLogout: () -> Unit) {
-    var searchText by remember { mutableStateOf(TextFieldValue("")) }
-    var sortOption by remember { mutableStateOf("A-Z") }
-    var selectedLevel by remember { mutableStateOf("Todos") }
+fun MainListScreen(
+    viewModel: DigimonViewModel,
+    onClick: (Digimon) -> Unit,
+    onLogout: () -> Unit
+) {
+    val searchText = viewModel.searchText
+    val sortOption = viewModel.sortOption
+    val selectedLevel = viewModel.selectedLevel
 
     val digimons = viewModel.digimonList
         .filter {
-            it.name.contains(searchText.text, ignoreCase = true)
+            it.name.contains(viewModel.searchText, ignoreCase = true)
         }
         .filter {
-            selectedLevel == "Todos" || it.level.equals(selectedLevel, ignoreCase = true)
+            viewModel.selectedLevel == "Todos" || it.level.equals(viewModel.selectedLevel, ignoreCase = true)
         }
-        .sortedWith(compareBy {
-            when (sortOption) {
-                "A-Z" -> it.name
-                "Z-A" -> it.name.reversed()
-                "Nivel ↑" -> it.level
-                "Nivel ↓" -> it.level.reversed()
-                else -> it.name
+        .let { list ->
+            when (viewModel.sortOption) {
+                "A-Z" -> list.sortedBy { it.name }
+                "Z-A" -> list.sortedByDescending { it.name }
+                "Nivel ↑" -> list.sortedBy { it.level }
+                "Nivel ↓" -> list.sortedByDescending { it.level }
+                else -> list
             }
-        })
+        }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     TextField(
-                        value = searchText,
-                        onValueChange = { searchText = it },
+                        value = viewModel.searchText,
+                        onValueChange = { viewModel.searchText = it },
                         placeholder = { Text("Buscar...") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                 },
                 actions = {
-                    SortMenu { sortOption = it }
+                    SortMenu { viewModel.sortOption = it }
                     FilterMenu(viewModel.digimonList.map { it.level }.distinct()) {
-                        selectedLevel = it
+                        viewModel.selectedLevel = it
                     }
-                    IconButton(onClick = { onLogout() }) {
-                        Icon(painter = painterResource(id = R.drawable.ic_logout), contentDescription = "Cerrar sesión")
+                    var expanded by remember { mutableStateOf(false) }
+
+                    IconButton(onClick = { expanded = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Menú")
+                    }
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        val context = LocalContext.current
+
+                        DropdownMenuItem(
+                            text = { Text("Cerrar sesión") },
+                            onClick = {
+                                expanded = false
+                                viewModel.logout(context) {
+                                    onLogout()
+                                }
+                            }
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Salir de la app") },
+                            onClick = {
+                                expanded = false
+                                exitProcess(0) // Cierra la app
+                            }
+                        )
                     }
                 }
             )

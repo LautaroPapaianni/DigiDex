@@ -77,7 +77,7 @@ fun DigimonDetailScreen(name: String, viewModel: DigimonViewModel, navController
                 Text("Nivel: ${it.levels.joinToString { lvl -> lvl.level }}")
                 Text("Atributo: ${it.attributes.joinToString { attr -> attr.attribute }}")
                 Text("Tipo: ${it.types.joinToString { t -> t.type }}")
-                Text("Ubicación: ${it.fields.joinToString { f -> f.field }}")
+                Text("Grupos: ${it.fields.joinToString { f -> f.field }}")
                 Text("Fecha de salida: ${it.releaseDate ?: "Desconocida"}")
 
                 val englishDescription = it.descriptions.firstOrNull { desc ->

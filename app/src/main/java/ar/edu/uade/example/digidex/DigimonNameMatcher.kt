@@ -1,7 +1,4 @@
-package ar.edu.uade.example.digidex.util
-
-import kotlin.math.max
-import android.util.Log
+package ar.edu.uade.example.digidex
 
 // Algoritmo para normalizar y emparejar nombres de Digimon entre APIs
 
