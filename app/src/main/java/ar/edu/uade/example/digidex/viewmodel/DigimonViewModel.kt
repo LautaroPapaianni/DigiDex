@@ -60,6 +60,9 @@ class DigimonViewModel : ViewModel() {
 
         while (true) {
             try {
+                if (page % 5 == 0){
+                    Log.d("DigimonVM", "Pagina: $page")
+                }
                 val response = DapiApi.retrofitService.getDigimonPage(page)
 
                 for (digimon in response.content) {
@@ -77,7 +80,7 @@ class DigimonViewModel : ViewModel() {
                     val maxLen = maxOf(normalized.length, normalizedCandidate.length)
                     val similarity = 1.0 - (distance.toDouble() / maxLen)
 
-                    if (similarity >= 0.86) {
+                    if (similarity >= 0.9) {
                         Log.d(
                             "DigimonVM",
                             "Match muy cercano (≥ 0.86) en página $page: $candidateName (score: $similarity)"

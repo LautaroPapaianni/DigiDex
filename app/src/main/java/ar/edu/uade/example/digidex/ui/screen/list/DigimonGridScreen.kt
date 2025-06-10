@@ -29,7 +29,7 @@ import coil.compose.rememberAsyncImagePainter
 @Composable
 fun DigimonGridScreen(digimons: List<Digimon>, onClick: (Digimon) -> Unit, modifier: Modifier = Modifier) {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(4),
+        columns = GridCells.Fixed(3),
         modifier = modifier
             .fillMaxSize()
             .padding(8.dp),
@@ -50,7 +50,7 @@ fun DigimonGridScreen(digimons: List<Digimon>, onClick: (Digimon) -> Unit, modif
                         .background(Color.DarkGray)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(text = digimon.name, style = MaterialTheme.typography.bodySmall)
+                Text(text = digimon.name, style = MaterialTheme.typography.bodySmall, color = (Color.White))
             }
         }
     }
