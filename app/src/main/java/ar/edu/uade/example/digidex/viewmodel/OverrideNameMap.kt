@@ -47,5 +47,6 @@ val digimonNameOverrides = mapOf(
     "ExVeemon" to "XV-mon",
     "Imperialdramon" to "Imperialdramon(Dragon Mode)",
     "Azulongmon" to "Qinglongmon",
-    "Omnimon" to "Omegamon"
+    "Omnimon" to "Omegamon",
+    "Daemon" to "Demon"
 )

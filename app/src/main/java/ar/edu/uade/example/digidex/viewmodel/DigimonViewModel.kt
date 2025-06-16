@@ -42,7 +42,13 @@ class DigimonViewModel : ViewModel() {
     }
 
     suspend fun getDigimonDetails(digimonName: String): DapiDigimonResponse? {
-        // 1. Overrides manuales
+         try {
+             val digimon = DapiApi.retrofitService.getDigimonByName(digimonName)
+             Log.d("DigimonVM", "Digimon encontrado")
+             return digimon
+
+         } catch (_: Exception){
+        }
         digimonNameOverrides[digimonName]?.let { overrideName ->
             Log.d("DigimonVM", "Usando override para $digimonName → $overrideName")
             return try {
@@ -69,13 +75,11 @@ class DigimonViewModel : ViewModel() {
                     val candidateName = digimon.name
                     val normalizedCandidate = normalizeName(candidateName)
 
-                    // Coincidencia exacta
                     if (normalized == normalizedCandidate) {
                         Log.d("DigimonVM", "Match exacto en página $page: $candidateName")
                         return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
                     }
 
-                    // Similitud
                     val distance = damerauLevenshtein(normalized, normalizedCandidate)
                     val maxLen = maxOf(normalized.length, normalizedCandidate.length)
                     val similarity = 1.0 - (distance.toDouble() / maxLen)
@@ -83,7 +87,7 @@ class DigimonViewModel : ViewModel() {
                     if (similarity >= 0.9) {
                         Log.d(
                             "DigimonVM",
-                            "Match muy cercano (≥ 0.86) en página $page: $candidateName (score: $similarity)"
+                            "Match muy cercano (≥ 0.9) en página $page: $candidateName (score: $similarity)"
                         )
                         return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
                     }
@@ -134,5 +138,12 @@ class DigimonViewModel : ViewModel() {
             onComplete()
         }
     }
+    fun toggleFavorite(digimon: String) {
+        digimonList = digimonList.map {
+            if (it.name == digimon) it.copy(isFavorite = !it.isFavorite)
+            else it
+        }
+    }
+
 
 }
