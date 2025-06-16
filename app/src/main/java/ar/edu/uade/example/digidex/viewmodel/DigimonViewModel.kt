@@ -18,8 +18,13 @@ import ar.edu.uade.example.digidex.utils.normalizeName
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 
 class DigimonViewModel : ViewModel() {
+    private val db = Firebase.firestore
+    private val uid = FirebaseAuth.getInstance().currentUser?.uid
+
     var digimonList by mutableStateOf<List<Digimon>>(emptyList())
     var isLoading by mutableStateOf(true)
 
@@ -33,6 +38,7 @@ class DigimonViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 digimonList = DigimonApi.retrofitService.getAllDigimons()
+                loadFavoritesFromFirestore()
             } catch (e: Exception) {
                 Log.e("DigimonVM", "Error cargando Digimons", e)
             } finally {
@@ -84,10 +90,10 @@ class DigimonViewModel : ViewModel() {
                     val maxLen = maxOf(normalized.length, normalizedCandidate.length)
                     val similarity = 1.0 - (distance.toDouble() / maxLen)
 
-                    if (similarity >= 0.9) {
+                    if (similarity >= 0.88) {
                         Log.d(
                             "DigimonVM",
-                            "Match muy cercano (≥ 0.9) en página $page: $candidateName (score: $similarity)"
+                            "Match muy cercano (≥ 0.88) en página $page: $candidateName (score: $similarity)"
                         )
                         return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
                     }
@@ -138,12 +144,52 @@ class DigimonViewModel : ViewModel() {
             onComplete()
         }
     }
-    fun toggleFavorite(digimon: String) {
-        digimonList = digimonList.map {
-            if (it.name == digimon) it.copy(isFavorite = !it.isFavorite)
-            else it
+    fun toggleFavorite(digimon: Digimon) {
+        digimon.isFavorite = !digimon.isFavorite
+        val index = digimonList.indexOfFirst { it.name == digimon.name }
+        if (index != -1) {
+            digimonList = digimonList.toMutableList().also { it[index] = digimon }
+        }
+
+        if (digimon.isFavorite) {
+            saveFavoriteToFirestore(digimon)
+        } else {
+            removeFavoriteFromFirestore(digimon)
         }
     }
 
+    fun saveFavoriteToFirestore(digimon: Digimon) {
+        uid?.let {
+            db.collection("users")
+                .document(it)
+                .collection("favorites")
+                .document(digimon.name)
+                .set(mapOf("name" to digimon.name, "img" to digimon.img, "level" to digimon.level))
+        }
+    }
 
+    fun removeFavoriteFromFirestore(digimon: Digimon) {
+        uid?.let {
+            db.collection("users")
+                .document(it)
+                .collection("favorites")
+                .document(digimon.name)
+                .delete()
+        }
+    }
+
+    fun loadFavoritesFromFirestore() {
+        uid?.let {
+            db.collection("users")
+                .document(it)
+                .collection("favorites")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val favoritesNames = snapshot.documents.mapNotNull { it.id }
+                    digimonList = digimonList.map {
+                        it.copy(isFavorite = favoritesNames.contains(it.name))
+                    }
+                }
+        }
+    }
 }

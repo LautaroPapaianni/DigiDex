@@ -118,8 +118,7 @@ fun MainListScreen(
             confirmButton = {
                 TextButton(onClick = {
                     selectedDigimon?.name?.let {
-                        viewModel.toggleFavorite(it)
-//                        refreshKey++
+                        viewModel.toggleFavorite(selectedDigimon!!)
                     }
                     showDialog = false
                 }) {
