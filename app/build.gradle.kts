@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    kotlin("kapt")
 }
 
 android {
@@ -29,14 +30,23 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
+    }
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "com.intellij" && requested.name == "annotations") {
+            useTarget("org.jetbrains:annotations:23.0.0")
+        }
     }
 }
 
@@ -67,6 +77,11 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.play.services.auth)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.androidx.room.common.jvm)
+    implementation(libs.androidx.room.runtime.android)
+    implementation(libs.androidx.room.runtime)
+    kapt(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

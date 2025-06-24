@@ -15,16 +15,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel
 import ar.edu.uade.example.digidex.R
+import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel
 import com.google.firebase.auth.FirebaseAuth
-
 
 @Composable
 fun SplashScreen(navController: NavController, viewModel: DigimonViewModel) {
-    val context = LocalContext.current
     val frames = listOf(
         painterResource(R.drawable.huevo),
         painterResource(R.drawable.huevo_rotura),

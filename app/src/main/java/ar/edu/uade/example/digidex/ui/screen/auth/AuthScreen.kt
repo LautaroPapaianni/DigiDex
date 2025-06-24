@@ -2,7 +2,6 @@
 
 package ar.edu.uade.example.digidex.ui.screen.auth
 
-import android.app.Activity
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,11 +23,15 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
-fun AuthScreen(onLoginSuccess: () -> Unit) {
+fun AuthScreen(onLoginSuccess: () -> Unit, viewModel: DigimonViewModel) {
     val context = LocalContext.current
-    val activity = context as Activity
     val auth = FirebaseAuth.getInstance()
 
     val gso = remember {
@@ -51,9 +54,26 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
                 auth.signInWithCredential(credential)
                     .addOnCompleteListener { authResult ->
                         if (authResult.isSuccessful) {
-                            Log.d("AuthScreen", "Login exitoso")
-                            onLoginSuccess()
-                        } else {
+                            val userId = FirebaseAuth.getInstance().currentUser?.uid
+                            val firestore = FirebaseFirestore.getInstance()
+
+                            if (userId != null) {
+                                val docRef = firestore.collection("users").document(userId)
+                                docRef.get().addOnSuccessListener { document ->
+                                    if (!document.exists()) {
+                                        docRef.set(mapOf("favorites" to emptyList<String>()))
+                                    }
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        viewModel.inicializarSesion(userId)
+                                        onLoginSuccess()
+                                    }
+                                }.addOnFailureListener { e ->
+                                    Log.e("AuthScreen", "Error al verificar documento del usuario", e)
+                                    Toast.makeText(context, "Error al verificar datos del usuario", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        else {
                             Log.e("AuthScreen", "Error Firebase", authResult.exception)
                             Toast.makeText(
                                 context,
@@ -66,12 +86,10 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
         } catch (e: ApiException) {
             when (e.statusCode) {
                 12501 -> {
-                    // Usuario canceló el login
                     Log.w("AuthScreen", "Inicio cancelado por el usuario (12501)")
                     Toast.makeText(context, "Inicio de sesión cancelado", Toast.LENGTH_SHORT).show()
                 }
                 12502 -> {
-                    // Error interno de Google Sign-In
                     Log.e("AuthScreen", "Error interno (12502)", e)
                     Toast.makeText(context, "Error interno de inicio de sesión", Toast.LENGTH_SHORT).show()
                 }
