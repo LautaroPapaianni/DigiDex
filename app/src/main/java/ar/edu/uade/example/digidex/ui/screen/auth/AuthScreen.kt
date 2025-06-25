@@ -55,16 +55,29 @@ fun AuthScreen(onLoginSuccess: () -> Unit, viewModel: DigimonViewModel) {
                     .addOnCompleteListener { authResult ->
                         if (authResult.isSuccessful) {
                             val userId = FirebaseAuth.getInstance().currentUser?.uid
+                            Log.d("AuthFlow", "Usuario $userId logueado. Iniciando carga de datos...")
                             val firestore = FirebaseFirestore.getInstance()
 
                             if (userId != null) {
                                 val docRef = firestore.collection("users").document(userId)
                                 docRef.get().addOnSuccessListener { document ->
                                     if (!document.exists()) {
-                                        docRef.set(mapOf("favorites" to emptyList<String>()))
+                                        docRef.set(mapOf("favorites" to emptySet<String>()))
                                     }
                                     CoroutineScope(Dispatchers.Main).launch {
+                                        Log.d("AuthScreen", "Login exitoso para $userId. UID de FirebaseAuth: ${FirebaseAuth.getInstance().currentUser?.uid}")
+                                        Log.d("AuthFlow", "Llamando a loadDigimons()...")
+                                        viewModel.loadDigimons()
                                         viewModel.inicializarSesion(userId)
+                                        Log.d("AuthFlow", "loadDigimons() completado. Tamaño de digimonList: ${viewModel.digimonList.size}")
+                                        if (viewModel.digimonList.isNotEmpty()) {
+                                            Log.d("AuthFlow", "Llamando a loadFavoritesFromFirestore($userId)...")
+                                            viewModel.loadFavoritesFromFirestore(userId)
+                                            Log.d("AuthFlow", "loadFavoritesFromFirestore() llamado.")
+                                        } else {
+                                            Log.e("AuthFlow", "ERROR: digimonList sigue vacía después de loadDigimons(). No se pueden cargar favoritos.")
+                                            // Aquí deberías manejar este error, quizás reintentar loadDigimons o mostrar un mensaje.
+                                        }
                                         onLoginSuccess()
                                     }
                                 }.addOnFailureListener { e ->
