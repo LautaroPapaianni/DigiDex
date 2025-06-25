@@ -62,7 +62,7 @@ fun AuthScreen(onLoginSuccess: () -> Unit, viewModel: DigimonViewModel) {
                                 val docRef = firestore.collection("users").document(userId)
                                 docRef.get().addOnSuccessListener { document ->
                                     if (!document.exists()) {
-                                        docRef.set(mapOf("favorites" to emptySet<String>()))
+                                        docRef.set(mapOf("favorites" to emptyList<String>()))
                                     }
                                     CoroutineScope(Dispatchers.Main).launch {
                                         Log.d("AuthScreen", "Login exitoso para $userId. UID de FirebaseAuth: ${FirebaseAuth.getInstance().currentUser?.uid}")
