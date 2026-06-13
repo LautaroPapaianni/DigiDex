@@ -17,11 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import ar.edu.uade.example.digidex.R
-import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun SplashScreen(navController: NavController, viewModel: DigimonViewModel) {
+fun SplashScreen(navController: NavController) {
     val frames = listOf(
         painterResource(R.drawable.huevo),
         painterResource(R.drawable.huevo_rotura),
@@ -36,8 +35,6 @@ fun SplashScreen(navController: NavController, viewModel: DigimonViewModel) {
             frameIndex = (frameIndex + 1) % frames.size
         }
     }
-
-    // ⏳ Simulamos carga de 2.5 segundos y luego navegamos
     LaunchedEffect("navigate") {
         delay(2500L)
 

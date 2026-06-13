@@ -2,191 +2,180 @@ package ar.edu.uade.example.digidex.ui.screen.detail
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite // Para el botón de favorito
+import androidx.compose.material.icons.filled.FavoriteBorder // Para el botón de favorito
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import ar.edu.uade.example.digidex.data.db.DigimonDatabase
+import ar.edu.uade.example.digidex.data.model.Digimon // Modelo de UI para pasar a toggleFavorite
+import ar.edu.uade.example.digidex.viewmodel.DigimonDetailViewModel
+import ar.edu.uade.example.digidex.viewmodel.DigimonDetailViewModelFactory
+import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel // El ViewModel principal
 import coil.compose.rememberAsyncImagePainter
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel
-import ar.edu.uade.example.digidex.data.model.DapiDigimonResponse
-import android.util.Log
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import ar.edu.uade.example.digidex.data.model.DapiDigimonSummary
-import ar.edu.uade.example.digidex.data.remote.DapiApi
-import ar.edu.uade.example.digidex.utils.damerauLevenshtein
-import ar.edu.uade.example.digidex.utils.normalizeName
-import ar.edu.uade.example.digidex.viewmodel.digimonNameOverrides
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DigimonDetailScreen(name: String, viewModel: DigimonViewModel, navController: NavController) {
-    val decodedName = URLDecoder.decode(name, StandardCharsets.UTF_8.toString())
-
-    var digimon by remember { mutableStateOf<DapiDigimonResponse?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-
-
-    LaunchedEffect(decodedName) {
-        isLoading = true
-        digimon = getDigimonDetails(decodedName)
-        isLoading = false
+fun DigimonDetailScreen(
+    digimonNameArg: String, // El nombre que llega de la navegación
+    navController: NavController,
+    mainViewModel: DigimonViewModel // Inyecta el ViewModel principal
+) {
+    val decodedName = remember(digimonNameArg) {
+        URLDecoder.decode(digimonNameArg, StandardCharsets.UTF_8.toString())
     }
 
+    val context = LocalContext.current
+    val dao = DigimonDatabase.getInstance(context.applicationContext).digimonDao()
 
-    if (isLoading) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-    } else {
-        digimon?.let {
-            Box(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                IconButton(
-                    onClick = { navController.popBackStack() },
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Volver"
-                    )
+    // Usar la lista de nombres de favoritos del ViewModel principal
+    // Si mainViewModel.favoriteDigimonNames es un StateList, Compose lo observará.
+    val favoriteNamesFromMainVM = mainViewModel.favoriteDigimonNames
+
+    val detailViewModel: DigimonDetailViewModel = viewModel(
+        factory = DigimonDetailViewModelFactory(decodedName, dao, favoriteNamesFromMainVM)
+    )
+
+    val uiState by rememberUpdatedState(detailViewModel.uiState) // O usa collectAsState si uiState es un Flow
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(uiState.digimonData?.name ?: decodedName) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    // Botón de Favorito
+                    uiState.digimonData?.let { digimonEntity ->
+                        IconButton(onClick = {
+                            // Crear un objeto Digimon (modelo UI) para pasar a toggleFavorite
+                            val digimonForToggle = Digimon(
+                                name = digimonEntity.name, // El nombre de la entidad, que debería ser el correcto
+                                img = digimonEntity.img ?: uiState.digimonData?.dapiImages?.firstOrNull() ?: "", // Intenta obtener la imagen
+                                level = digimonEntity.level ?: uiState.digimonData?.dapiLevels?.firstOrNull() ?: "Desconocido", // Intenta obtener el nivel
+                                isFavorite = uiState.isFavorite // El estado actual de favorito
+                            )
+                            mainViewModel.toggleFavorite(digimonForToggle)
+                            // El uiState.isFavorite se actualizará porque mainVmFavoriteNames cambiará
+                            // y la factory del detailViewModel usa esa lista.
+                            // Si mainVmFavoriteNames es un StateList, la recomposición debería ocurrir.
+                            // Si no, podrías necesitar forzar una re-evaluación o pasar un callback.
+                        }) {
+                            Icon(
+                                imageVector = if (uiState.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                contentDescription = "Favorito",
+                                tint = if (uiState.isFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                            )
+                        }
+                    }
                 }
-            }
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .padding(paddingValues)
+                .fillMaxSize(),
+            contentAlignment = Alignment.Center // Centra el CircularProgressIndicator y el mensaje de error
+        ) {
+            if (uiState.isLoading) {
+                CircularProgressIndicator()
+            } else if (uiState.error != null) {
+                Text(
+                    text = uiState.error!!,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            } else if (uiState.digimonData != null) {
+                val digimon = uiState.digimonData // Esta es tu DigimonEntity con detalles de DAPI
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()) // Para contenido largo
                 ) {
-                if (it.images.isNotEmpty()) {
-                    Image(
-                        painter = rememberAsyncImagePainter(it.images.first().href),
-                        contentDescription = it.name,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(250.dp)
-                    )
+                    // Imagen principal (de DAPI si está, sino la de la lista inicial)
+                    val imageUrl = digimon?.dapiImages?.firstOrNull() ?: digimon?.img
+                    if (!imageUrl.isNullOrBlank()) {
+                        Image(
+                            painter = rememberAsyncImagePainter(imageUrl),
+                            contentDescription = digimon?.name,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(250.dp)
+                                .align(Alignment.CenterHorizontally) // Centrar imagen
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    Text("Nombre: ${digimon?.name}", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+
+                    // Nivel (de DAPI si está, sino el de la lista inicial)
+                    val levelText = digimon?.dapiLevels?.joinToString(", ") ?: digimon?.level
+                    if (!levelText.isNullOrBlank()) {
+                        Text("Nivel: $levelText")
+                    }
+
+                    // Atributo (de DAPI)
+                    digimon?.dapiAttributes?.let { attributes ->
+                        if (attributes.isNotEmpty()) {
+                            Text("Atributo: ${attributes.joinToString(", ")}")
+                        }
+                    }
+
+                    // Tipo (de DAPI)
+                    digimon?.dapiTypes?.let { types ->
+                        if (types.isNotEmpty()) {
+                            Text("Tipo: ${types.joinToString(", ")}")
+                        }
+                    }
+
+                    // Grupos/Fields (de DAPI)
+                    digimon?.dapiFields?.let { fields ->
+                        if (fields.isNotEmpty()) {
+                            Text("Grupos: ${fields.joinToString(", ")}")
+                        }
+                    }
+
+                    // Año de primera aparición (de DAPI)
+                    digimon?.dapiReleaseDate?.let {
+                        Text("Año de primera aparición: $it")
+                    }
+
+                    // Descripción (de DAPI)
+                    digimon?.dapiDescription?.let {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Descripción:", fontWeight = FontWeight.SemiBold)
+                        Text(it)
+                    } ?: Text("Descripción no disponible.")
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Detalles cargados de DAPI: ${digimon?.detailsFetchedFromDapi}", fontSize = 12.sp)
+
+
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Nombre: ${it.name}", fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                Text("Nivel: ${it.levels.joinToString { lvl -> lvl.level }}")
-                Text("Atributo: ${it.attributes.joinToString { attr -> attr.attribute }}")
-                Text("Tipo: ${it.types.joinToString { t -> t.type }}")
-                Text("Grupos: ${it.fields.joinToString { f -> f.field }}")
-                Text("Fecha de salida: ${it.releaseDate ?: "Desconocida"}")
-
-                val englishDescription = it.descriptions.firstOrNull { desc ->
-                    desc.language.equals("en_us", ignoreCase = true)
-                }?.description
-
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("Descripción:", fontWeight = FontWeight.SemiBold)
-                Text(englishDescription ?: "No disponible.")
+            } else {
+                Text("No se encontraron detalles para $decodedName", modifier = Modifier.padding(16.dp))
             }
-
-        } ?: Box(
-            Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("No se encontraron detalles para $decodedName")
         }
     }
-}
-suspend fun getDigimonDetails(digimonName: String): DapiDigimonResponse? {
-    try {
-        val digimon = DapiApi.retrofitService.getDigimonByName(digimonName)
-        Log.d("DigimonVM", "Digimon encontrado")
-        return digimon
-
-    } catch (_: Exception){
-    }
-    digimonNameOverrides[digimonName]?.let { overrideName ->
-        Log.d("DigimonVM", "Usando override para $digimonName → $overrideName")
-        return try {
-            DapiApi.retrofitService.getDigimonByName(overrideName)
-        } catch (e: Exception) {
-            Log.e("DigimonVM", "Error al obtener override $overrideName", e)
-            null
-        }
-    }
-
-    val normalized = normalizeName(digimonName)
-    var page = 0
-    var bestMatch: DapiDigimonSummary? = null
-    var bestSimilarity = 0.0
-
-    while (true) {
-        try {
-            if (page % 5 == 0){
-                Log.d("DigimonVM", "Pagina: $page")
-            }
-            val response = DapiApi.retrofitService.getDigimonPage(page)
-
-            for (digimon in response.content) {
-                val candidateName = digimon.name
-                val normalizedCandidate = normalizeName(candidateName)
-
-                if (normalized == normalizedCandidate) {
-                    Log.d("DigimonVM", "Match exacto en página $page: $candidateName")
-                    return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
-                }
-
-                val distance = damerauLevenshtein(normalized, normalizedCandidate)
-                val maxLen = maxOf(normalized.length, normalizedCandidate.length)
-                val similarity = 1.0 - (distance.toDouble() / maxLen)
-
-                if (similarity >= 0.88) {
-                    Log.d(
-                        "DigimonVM",
-                        "Match muy cercano (≥ 0.88) en página $page: $candidateName (score: $similarity)"
-                    )
-                    return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
-                }
-
-                if (similarity > bestSimilarity) {
-                    bestSimilarity = similarity
-                    bestMatch = digimon
-                }
-            }
-
-            if (response.pageable.nextPage.isNullOrEmpty()) break
-            page++
-
-        } catch (e: Exception) {
-            Log.e("DigimonVM", "Error buscando $digimonName en página $page", e)
-            break
-        }
-    }
-
-    if (bestMatch != null && bestSimilarity >= 0.74) {
-        Log.d(
-            "DigimonVM",
-            "Match aceptable para $digimonName: ${bestMatch.name} (score: $bestSimilarity)"
-        )
-        return try {
-            DapiApi.retrofitService.getDigimonById(bestMatch.id.toString())
-        } catch (e: Exception) {
-            Log.e("DigimonVM", "Error cargando detalles de ${bestMatch.name}", e)
-            null
-        }
-    }
-
-    Log.d("DigimonVM", "No se encontró $digimonName en ninguna página")
-    return null
 }

@@ -12,11 +12,15 @@ import androidx.lifecycle.viewModelScope
 import ar.edu.uade.example.digidex.R
 import ar.edu.uade.example.digidex.data.entity.DigimonEntity
 import ar.edu.uade.example.digidex.data.interfaces.DigimonDao
+import ar.edu.uade.example.digidex.data.model.DapiDigimonResponse
+import ar.edu.uade.example.digidex.data.model.DapiDigimonSummary
 import ar.edu.uade.example.digidex.data.model.Digimon
+import ar.edu.uade.example.digidex.data.remote.DapiApi
+import ar.edu.uade.example.digidex.utils.damerauLevenshtein
+import ar.edu.uade.example.digidex.utils.normalizeName
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
@@ -41,14 +45,13 @@ class DigimonViewModel(
     init {
         viewModelScope.launch {
             Log.d("DigimonVM_Init", "ViewModel inicializándose...")
-            // Primero, cargar la lista base de Digimon
-            loadDigimons() // Espera a que se complete
+            loadDigimonsFromDbOrApi()
             Log.d("DigimonVM_Init", "Digimons base cargados en init. Total: ${digimonList.size}")
 
             val currentUser = FirebaseAuth.getInstance().currentUser
             currentUser?.uid?.let { userId ->
                 Log.d("DigimonVM_Init", "Usuario ya logueado ($userId), cargando sus favoritos.")
-                if (digimonList.isNotEmpty()) { // Comprobación adicional
+                if (digimonList.isNotEmpty()) {
                     loadFavoritesFromFirestore(userId)
                 } else {
                     Log.w("DigimonVM_Init", "digimonList vacía después de loadDigimons en init. No se cargan favoritos.")
@@ -56,23 +59,6 @@ class DigimonViewModel(
             } ?: run {
                 Log.d("DigimonVM_Init", "No hay usuario logueado al inicio.")
             }
-            // isLoading = false // Asegúrate que isLoading se maneje correctamente en loadDigimons y loadFavorites
-        }
-    }
-
-    fun syncFavoritesFromFirestoreToRoom(userId: String) {
-        val userDoc = FirebaseFirestore.getInstance().collection("users").document(userId)
-        userDoc.get().addOnSuccessListener { doc ->
-            val favorites = doc.get("favorites") as? List<String> ?: emptyList()
-            viewModelScope.launch {
-                dao.clearFavoritesForUser(userId)
-                favorites.forEach { name ->
-                    dao.getFavorites(name)
-                }
-                loadFavoritesFromDb(userId)
-            }
-        }.addOnFailureListener {
-            Log.e("DigimonVM", "Error al sincronizar favoritos desde Firestore", it)
         }
     }
 
@@ -88,59 +74,67 @@ class DigimonViewModel(
     fun prepareForViewModelResetAfterLogout() {
         favoriteDigimonNames.clear()
         digimonList = digimonList.map { it.copy(isFavorite = false) }
-        // currentUserId = null
-        // Si tienes otros estados específicos del usuario, resetealos aquí.
-        // Considera recargar la lista de Digimon base si es necesario
-        // viewModelScope.launch { loadDigimons() } // Para mostrar la lista "limpia"
     }
 
-    fun inicializarSesion(userId: String) {
+    fun inicializarSesion() {
         clearLocalFavorites()
-        syncFavoritesFromFirestoreToRoom(userId)
     }
 
     fun clearLocalFavorites() {
         uid?.let {
             viewModelScope.launch {
-                dao.clearFavoritesForUser(it)
                 favoriteDigimonNames.clear()
                 digimonList = digimonList.map { it.copy(isFavorite = false) }
             }
         }
     }
 
-    fun loadFavoritesFromDb(userId: String) {
-        viewModelScope.launch {
-            val favoritesFromDb = dao.getFavorites(userId).map { it.name }
-            favoriteDigimonNames.clear()
-            favoriteDigimonNames.addAll(favoritesFromDb)
+    suspend fun loadDigimonsFromDbOrApi(){
+        var entities = dao.getAll() // Intenta cargar desde Room primero
+        Log.d("DigimonVM", "Digimons cargados desde Room: ${entities.size}")
+
+        if (entities.isEmpty()) {
+            Log.d("DigimonVM", "Room vacío, cargando desde API...")
+            try {
+                val apiDigimonList = DigimonApi.retrofitService.getAllDigimons() // Esto devuelve List<Digimon> (modelo API)
+                val initialEntities = apiDigimonList.map { it.toInitialEntity() } // Convertir a List<DigimonEntity>
+                dao.insertInitialBulk(initialEntities) // Guardar en Room
+                entities = initialEntities // Usar estas entidades recién cargadas
+                Log.d("DigimonVM", "Digimons cargados desde API y guardados en Room. Total: ${entities.size}")
+            } catch (e: Exception) {
+                Log.e("DigimonVM", "Fallo al cargar desde API: ${e.message}", e)
+                // entities seguirá vacía si falla la API y Room estaba vacío
+            }
         }
+        digimonList = entities.toUiModelList(favoriteDigimonNames)
     }
 
-    suspend fun loadDigimons() {
-        try {
-            kotlinx.coroutines.delay(1000)
-            val remoteList = DigimonApi.retrofitService.getAllDigimons()
-            digimonList = remoteList
-            dao.insertAll(remoteList.map { it.toEntity() })
-            Log.d("DigimonVM", "loadDigimons: Digimons cargados desde API. Total: ${digimonList.size}")
-        } catch (e: Exception) {
-            Log.e("DigimonVM", "Fallo conexión, usando Room: ${e.message}", e)
-            digimonList = dao.getAll().map { it.toModel() } // Cargar desde Room como fallback
-            Log.d("DigimonVM", "loadDigimons: Digimons cargados desde Room. Total: ${digimonList.size}")
-        } finally {
-            isLoading = false // Indicar fin de carga
-        }
+    fun Digimon.toInitialEntity(): DigimonEntity { // Digimon es tu modelo de UI/API
+        return DigimonEntity(
+            name = this.name,
+            img = this.img,
+            level = this.level,
+            detailsFetchedFromDapi = false // Inicialmente no se han cargado los detalles
+            // No hay isFavorite ni userId aquí
+        )
     }
 
-    fun Digimon.toEntity(): DigimonEntity = DigimonEntity(name, img, level, isFavorite,
-        uid.toString()
-    )
-    fun DigimonEntity.toModel(): Digimon = Digimon(name, img, level, isFavorite)
+    // Desde DigimonEntity (de Room) a tu modelo de UI Digimon
+// Esta función ahora necesitará saber si es favorito basándose en tu lista 'favoriteDigimonNames'
+    fun DigimonEntity.toUiModel(isFavorite: Boolean): Digimon {
+        return Digimon(
+            name = this.name,
+            img = this.img ?: "", // Provee un default si img puede ser null
+            level = this.level ?: "Desconocido", // Provee un default
+            isFavorite = isFavorite // Se determina externamente
+        )
+    }
+
+    fun List<DigimonEntity>.toUiModelList(favoriteDigimonNames: List<String>): List<Digimon> {
+        return this.map { it.toUiModel(favoriteDigimonNames.contains(it.name)) }
+    }
 
     fun logout(context: Context, onComplete: () -> Unit) {
-        val userIdToClear = FirebaseAuth.getInstance().currentUser?.uid // Obtener UID ANTES de signOut
-
         val googleSignInClient = GoogleSignIn.getClient(
             context,
             GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -152,10 +146,6 @@ class DigimonViewModel(
         googleSignInClient.signOut().addOnCompleteListener {
             FirebaseAuth.getInstance().signOut() // Firebase signOut
             viewModelScope.launch {
-                userIdToClear?.let {
-                    dao.clearFavoritesForUser(it) // Limpiar Room para el usuario deslogueado
-                }
-                // Llamar a la función que limpia el estado del ViewModel
                 prepareForLogout()
                 prepareForViewModelResetAfterLogout()
                 onComplete() // Callback para la UI (navegar a pantalla de login, etc.)
@@ -172,7 +162,6 @@ class DigimonViewModel(
 
         viewModelScope.launch {
             val isFav = digimon.name in favoriteDigimonNames
-            dao.setFavorite(digimon.name, !isFav)
             if (isFav) {
                 favoriteDigimonNames.remove(digimon.name)
                 removeFavoriteFromFirestore(digimon)
@@ -219,21 +208,16 @@ class DigimonViewModel(
                 .get()
                 .addOnSuccessListener { favoriteDocs ->
                     viewModelScope.launch {
-                        dao.clearFavoritesForUser(userId)
-
                         val entities = favoriteDocs.documents.mapNotNull { doc ->
                             val name = doc.getString("name")
                             val img = doc.getString("img")
                             val level = doc.getString("level")
                             if (name != null && img != null && level != null) {
-                                DigimonEntity(name, img, level, true, userId)
+                                DigimonEntity(name, img, level)
                             } else null
                         }
-                        dao.insertAll(entities)
-
                         favoriteDigimonNames.clear()
                         favoriteDigimonNames.addAll(entities.map { it.name })
-                        dao.clearFavoritesForUser(userId)
                         val currentDigimonListState = digimonList
                         Log.d("DigimonVM_Debug", "Nombres en favoriteDigimonNames ANTES del map: ${favoriteDigimonNames.joinToString()}")
                         Log.d("DigimonVM_Debug", "Primeros 5 nombres en currentDigimonListState (si existen): ${currentDigimonListState.take(5).map { it.name }.joinToString()}")
@@ -266,5 +250,86 @@ class DigimonViewModel(
                     }
                 }
            }
+    suspend fun getDigimonDetails(digimonName: String): DapiDigimonResponse? {
+        try {
+            val digimon = DapiApi.retrofitService.getDigimonByName(digimonName)
+            Log.d("DigimonVM", "Digimon encontrado")
+            return digimon
 
+        } catch (_: Exception){
+        }
+        digimonNameOverrides[digimonName]?.let { overrideName ->
+            Log.d("DigimonVM", "Usando override para $digimonName → $overrideName")
+            return try {
+                DapiApi.retrofitService.getDigimonByName(overrideName)
+            } catch (e: Exception) {
+                Log.e("DigimonVM", "Error al obtener override $overrideName", e)
+                null
+            }
+        }
+
+        val normalized = normalizeName(digimonName)
+        var page = 0
+        var bestMatch: DapiDigimonSummary? = null
+        var bestSimilarity = 0.0
+
+        while (true) {
+            try {
+                if (page % 5 == 0){
+                    Log.d("DigimonVM", "Pagina: $page")
+                }
+                val response = DapiApi.retrofitService.getDigimonPage(page)
+
+                for (digimon in response.content) {
+                    val candidateName = digimon.name
+                    val normalizedCandidate = normalizeName(candidateName)
+
+                    if (normalized == normalizedCandidate) {
+                        Log.d("DigimonVM", "Match exacto en página $page: $candidateName")
+                        return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
+                    }
+
+                    val distance = damerauLevenshtein(normalized, normalizedCandidate)
+                    val maxLen = maxOf(normalized.length, normalizedCandidate.length)
+                    val similarity = 1.0 - (distance.toDouble() / maxLen)
+
+                    if (similarity >= 0.88) {
+                        Log.d(
+                            "DigimonVM",
+                            "Match muy cercano (≥ 0.88) en página $page: $candidateName (score: $similarity)"
+                        )
+                        return DapiApi.retrofitService.getDigimonById(digimon.id.toString())
+                    }
+
+                    if (similarity > bestSimilarity) {
+                        bestSimilarity = similarity
+                        bestMatch = digimon
+                    }
+                }
+
+                if (response.pageable.nextPage.isNullOrEmpty()) break
+                page++
+
+            } catch (e: Exception) {
+                Log.e("DigimonVM", "Error buscando $digimonName en página $page", e)
+                break
+            }
+        }
+
+        if (bestMatch != null && bestSimilarity >= 0.74) {
+            Log.d(
+                "DigimonVM",
+                "Match aceptable para $digimonName: ${bestMatch.name} (score: $bestSimilarity)"
+            )
+            return try {
+                DapiApi.retrofitService.getDigimonById(bestMatch.id.toString())
+            } catch (e: Exception) {
+                Log.e("DigimonVM", "Error cargando detalles de ${bestMatch.name}", e)
+                null
+            }
+        }
+
+        Log.d("DigimonVM", "No se encontró $digimonName en ninguna página")
+        return null
+    }
 }

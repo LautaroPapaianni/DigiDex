@@ -4,10 +4,13 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import ar.edu.uade.example.digidex.data.db.converters.StringListConverter
 import ar.edu.uade.example.digidex.data.entity.DigimonEntity
 import ar.edu.uade.example.digidex.data.interfaces.DigimonDao
 
-@Database(entities = [DigimonEntity::class], version = 2)
+@Database(entities = [DigimonEntity::class], version = 3, exportSchema = false)
+@TypeConverters(StringListConverter::class)
 abstract class DigimonDatabase : RoomDatabase() {
     abstract fun digimonDao(): DigimonDao
 
@@ -20,8 +23,10 @@ abstract class DigimonDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     DigimonDatabase::class.java,
-                    "digimon_database"
-                ).fallbackToDestructiveMigration().build()
+                    "digimon_data_database"
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

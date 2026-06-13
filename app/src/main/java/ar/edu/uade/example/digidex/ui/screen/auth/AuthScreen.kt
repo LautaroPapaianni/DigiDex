@@ -67,8 +67,8 @@ fun AuthScreen(onLoginSuccess: () -> Unit, viewModel: DigimonViewModel) {
                                     CoroutineScope(Dispatchers.Main).launch {
                                         Log.d("AuthScreen", "Login exitoso para $userId. UID de FirebaseAuth: ${FirebaseAuth.getInstance().currentUser?.uid}")
                                         Log.d("AuthFlow", "Llamando a loadDigimons()...")
-                                        viewModel.loadDigimons()
-                                        viewModel.inicializarSesion(userId)
+                                        viewModel.loadDigimonsFromDbOrApi()
+                                        viewModel.inicializarSesion()
                                         Log.d("AuthFlow", "loadDigimons() completado. Tamaño de digimonList: ${viewModel.digimonList.size}")
                                         if (viewModel.digimonList.isNotEmpty()) {
                                             Log.d("AuthFlow", "Llamando a loadFavoritesFromFirestore($userId)...")

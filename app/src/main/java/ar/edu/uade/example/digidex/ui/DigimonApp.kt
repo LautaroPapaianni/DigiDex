@@ -40,7 +40,7 @@ fun DigimonApp() {
             )
         }
         composable("splash") {
-            SplashScreen(navController = navController, viewModel = viewModel)
+            SplashScreen(navController = navController)
         }
         composable("list") {
             MainListScreen(
@@ -59,7 +59,7 @@ fun DigimonApp() {
 
         composable("detail/{name}") { backStackEntry ->
             val name = backStackEntry.arguments?.getString("name") ?: ""
-            DigimonDetailScreen(name = name, viewModel = viewModel, navController = navController)
+            DigimonDetailScreen(digimonNameArg = name, navController = navController, mainViewModel = viewModel)
         }
 
     }
