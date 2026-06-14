@@ -66,25 +66,19 @@ fun DigimonDetailScreen(
                 actions = {
                     // Botón de Favorito
                     uiState.digimonData?.let { digimonEntity ->
-                        IconButton(onClick = {
-                            // Crear un objeto Digimon (modelo UI) para pasar a toggleFavorite
-                            val digimonForToggle = Digimon(
-                                name = digimonEntity.name, // El nombre de la entidad, que debería ser el correcto
-                                img = digimonEntity.img ?: uiState.digimonData?.dapiImages?.firstOrNull() ?: "", // Intenta obtener la imagen
-                                level = digimonEntity.level ?: uiState.digimonData?.dapiLevels?.firstOrNull() ?: "Desconocido", // Intenta obtener el nivel
-                                isFavorite = uiState.isFavorite // El estado actual de favorito
-                            )
-                            mainViewModel.toggleFavorite(digimonForToggle)
-                            // El uiState.isFavorite se actualizará porque mainVmFavoriteNames cambiará
-                            // y la factory del detailViewModel usa esa lista.
-                            // Si mainVmFavoriteNames es un StateList, la recomposición debería ocurrir.
-                            // Si no, podrías necesitar forzar una re-evaluación o pasar un callback.
-                        }) {
-                            Icon(
-                                imageVector = if (uiState.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = "Favorito",
-                                tint = if (uiState.isFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current
-                            )
+                        // Botón de Favorito corregido
+                        uiState.digimonData?.let {
+                            IconButton(onClick = {
+                                // Llamamos a una nueva función en el ViewModel de detalle
+                                detailViewModel.toggleFavorite(mainViewModel)
+                            }) {
+                                Icon(
+                                    imageVector = if (uiState.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                    contentDescription = "Favorito",
+                                    // Cambié el color a Rojo para que se note más el cambio, pero puedes dejar el primary
+                                    tint = if (uiState.isFavorite) androidx.compose.ui.graphics.Color.Red else LocalContentColor.current
+                                )
+                            }
                         }
                     }
                 }

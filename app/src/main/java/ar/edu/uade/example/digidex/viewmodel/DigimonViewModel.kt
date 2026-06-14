@@ -154,20 +154,33 @@ class DigimonViewModel(
     }
 
     fun toggleFavorite(digimon: Digimon) {
-        digimon.isFavorite = !digimon.isFavorite
-        val index = digimonList.indexOfFirst { it.name == digimon.name }
-        if (index != -1) {
-            digimonList = digimonList.toMutableList().also { it[index] = digimon }
+        // 1. Calculamos el nuevo estado basándonos en la lista de nombres (nuestra fuente de verdad)
+        val isCurrentlyFavorite = favoriteDigimonNames.contains(digimon.name)
+        val newFavoriteStatus = !isCurrentlyFavorite
+
+        // 2. Actualizamos la lista de nombres de favoritos inmediatamente (UI principal reacciona)
+        if (newFavoriteStatus) {
+            if (!favoriteDigimonNames.contains(digimon.name)) {
+                favoriteDigimonNames.add(digimon.name)
+            }
+        } else {
+            favoriteDigimonNames.remove(digimon.name)
         }
 
+        // 3. Actualizamos el objeto en la lista principal (para que la Grid sepa que cambió)
+        val index = digimonList.indexOfFirst { it.name == digimon.name }
+        if (index != -1) {
+            digimonList = digimonList.toMutableList().also {
+                it[index] = it[index].copy(isFavorite = newFavoriteStatus)
+            }
+        }
+
+        // 4. Sincronizamos con la nube (Firestore)
         viewModelScope.launch {
-            val isFav = digimon.name in favoriteDigimonNames
-            if (isFav) {
-                favoriteDigimonNames.remove(digimon.name)
-                removeFavoriteFromFirestore(digimon)
-            } else {
-                favoriteDigimonNames.add(digimon.name)
+            if (newFavoriteStatus) {
                 saveFavoriteToFirestore(digimon)
+            } else {
+                removeFavoriteFromFirestore(digimon)
             }
         }
     }

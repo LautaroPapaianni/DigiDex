@@ -10,6 +10,7 @@ import ar.edu.uade.example.digidex.data.interfaces.DigimonDao
 import kotlinx.coroutines.launch
 import android.util.Log
 import ar.edu.uade.example.digidex.data.model.DapiDigimonResponse
+import ar.edu.uade.example.digidex.data.model.Digimon
 import kotlin.text.equals
 
 // Modelo de UI para la pantalla de detalle (puede ser tu DigimonEntity directamente o uno mapeado)
@@ -28,6 +29,28 @@ class DigimonDetailViewModel(
 
     init {
         loadDetails()
+    }
+
+    // DENTRO de DigimonDetailViewModel.kt
+    fun toggleFavorite(mainViewModel: DigimonViewModel) {
+        val currentEntity = uiState.digimonData ?: return
+
+        // 1. Obtenemos el estado actual
+        val currentlyIsFavorite = uiState.isFavorite
+
+        // 2. Creamos un objeto Digimon para el ViewModel principal
+        val digimon = Digimon(
+            name = currentEntity.name,
+            img = currentEntity.img ?: "",
+            level = currentEntity.level ?: "",
+            isFavorite = currentlyIsFavorite
+        )
+
+        // 3. Llamamos al MainViewModel para que actualice Firebase y la lista global
+        mainViewModel.toggleFavorite(digimon)
+
+        // 4. CRUCIAL: Actualizamos el UI STATE LOCAL para que el corazón se rellene YA
+        uiState = uiState.copy(isFavorite = !currentlyIsFavorite)
     }
 
     private fun loadDetails() {
