@@ -26,20 +26,6 @@ fun MainListScreen(
     var showDialog by remember { mutableStateOf(false) }
     var selectedDigimon by remember { mutableStateOf<Digimon?>(null) }
 
-    val digimons = viewModel.digimonList
-        .filter { it.name.contains(viewModel.searchText, ignoreCase = true) }
-        .filter { viewModel.selectedLevel == "Todos" || it.level.equals(viewModel.selectedLevel, ignoreCase = true) }
-        .sortedWith(
-            compareByDescending<Digimon> { it.isFavorite }.thenBy {
-                when (viewModel.sortOption) {
-                    "A-Z" -> it.name
-                    "Z-A" -> it.name.reversed()
-                    "Nivel ↑" -> it.level
-                    "Nivel ↓" -> it.level.reversed()
-                    else -> it.name
-                }
-            }
-        )
 
     Scaffold(
         topBar = {
@@ -55,8 +41,8 @@ fun MainListScreen(
                 },
                 actions = {
                     SortMenu { viewModel.sortOption = it }
-                    FilterMenu(viewModel.digimonList.map { it.level }.distinct()) {
-                        viewModel.selectedLevel = it
+                    FilterMenu(levels = viewModel.availableLevels) { selected ->
+                        viewModel.selectedLevel = selected
                     }
                     var expanded by remember { mutableStateOf(false) }
 
@@ -101,7 +87,7 @@ fun MainListScreen(
                 .background(Color(0xFF253C86))
         ) {
             DigimonGridScreen(
-                digimons = digimons,
+                digimons = viewModel.filteredDigimons,
                 onClick = onClick,
                 onLongClick = {
                     selectedDigimon = it

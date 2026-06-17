@@ -24,10 +24,52 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
+import kotlin.text.any
+import kotlin.text.equals
 
 class DigimonViewModel(
     private val dao: DigimonDao
 ) : ViewModel() {
+
+    // Los niveles base para que no empiece vacía
+    private val OFFICIAL_LEVELS = listOf(
+        "Fresh", "Training", "Rookie", "Champion", "Ultimate", "Mega", "Armor", "In Training"
+    )
+
+    // Ahora es una lista mutable que Compose puede observar
+    val availableLevels = mutableStateListOf<String>()
+
+    // Propiedad para que la Grid se actualice sola
+    // Propiedad para que la Grid se actualice sola
+    val filteredDigimons: List<Digimon>
+        get() {
+            val filtered = digimonList
+                .filter { it.name.contains(searchText, ignoreCase = true) }
+                .filter {
+                    if (selectedLevel == "Todos") true
+                    else it.level.equals(selectedLevel, ignoreCase = true)
+                }
+                .sortedWith(
+                    compareByDescending<Digimon> { it.isFavorite }
+                        .then(
+                            when (sortOption) {
+                                "A-Z" -> compareBy { it.name }
+                                "Z-A" -> compareByDescending { it.name }
+                                "Nivel ↑" -> compareBy { it.level }
+                                "Nivel ↓" -> compareByDescending { it.level }
+                                else -> compareBy { it.name }
+                            }
+                        )
+                )
+
+            // --- LOG PARA DEPURACIÓN ---
+            Log.d("DigimonFilter", "Filtro: [$selectedLevel] | Busqueda: '$searchText' | Mostrando: ${filtered.size} Digimons")
+            // ---------------------------
+            // Log temporal para ver qué niveles existen realmente en memoria
+            val conteoNiveles = digimonList.groupBy { it.level }.mapValues { it.value.size }
+            Log.d("DigimonCheck", "Distribución actual en memoria: $conteoNiveles")
+            return filtered
+        }
 
     val favoriteDigimonNames = mutableStateListOf<String>()
 
@@ -89,23 +131,41 @@ class DigimonViewModel(
         }
     }
 
-    suspend fun loadDigimonsFromDbOrApi(){
-        var entities = dao.getAll() // Intenta cargar desde Room primero
-        Log.d("DigimonVM", "Digimons cargados desde Room: ${entities.size}")
+    suspend fun loadDigimonsFromDbOrApi() {
+        var entities = dao.getAll()
 
         if (entities.isEmpty()) {
-            Log.d("DigimonVM", "Room vacío, cargando desde API...")
             try {
-                val apiDigimonList = DigimonApi.retrofitService.getAllDigimons() // Esto devuelve List<Digimon> (modelo API)
-                val initialEntities = apiDigimonList.map { it.toInitialEntity() } // Convertir a List<DigimonEntity>
-                dao.insertInitialBulk(initialEntities) // Guardar en Room
-                entities = initialEntities // Usar estas entidades recién cargadas
-                Log.d("DigimonVM", "Digimons cargados desde API y guardados en Room. Total: ${entities.size}")
+                val apiDigimonList = DigimonApi.retrofitService.getAllDigimons()
+
+                // Al cargar por primera vez, guardamos las entidades originales
+                val initialEntities = apiDigimonList.map { it.toInitialEntity() }
+                dao.insertInitialBulk(initialEntities)
+                entities = initialEntities
+
+                // Llenamos el menú con los niveles que vinieron de la API original
+                // Dentro del bloque entities.isEmpty()
+                val levelsFromApi = apiDigimonList.mapNotNull {
+                    mapTechnicalLevel(it.level, it.name) // Normalizamos usando el nombre
+                }
+                    .filter { it.isNotBlank() && it != "Desconocido" }
+                    .distinct()
+                    .sorted()
+                availableLevels.clear()
+                availableLevels.addAll(levelsFromApi)
+
             } catch (e: Exception) {
-                Log.e("DigimonVM", "Fallo al cargar desde API: ${e.message}", e)
-                // entities seguirá vacía si falla la API y Room estaba vacío
+                Log.e("DigimonVM", "Fallo al cargar desde API: ${e.message}")
             }
+        } else {
+            // SI YA HAY DATOS: No leemos los niveles de las entidades (porque DAPI las cambió).
+            // Usamos directamente nuestra lista OFFICIAL_LEVELS para el menú.
+            availableLevels.clear()
+            availableLevels.addAll(OFFICIAL_LEVELS.sorted())
         }
+
+        // Al convertir a UI Model, mapTechnicalLevel se encargará de que
+        // si en la DB dice "Child", en el objeto Digimon diga "Rookie"
         digimonList = entities.toUiModelList(favoriteDigimonNames)
     }
 
@@ -121,12 +181,15 @@ class DigimonViewModel(
 
     // Desde DigimonEntity (de Room) a tu modelo de UI Digimon
 // Esta función ahora necesitará saber si es favorito basándose en tu lista 'favoriteDigimonNames'
+    // En DigimonViewModel.kt
     fun DigimonEntity.toUiModel(isFavorite: Boolean): Digimon {
+        // Pasamos this.level y también this.name
+        val normalizedLevel = mapTechnicalLevel(this.level, this.name)
         return Digimon(
             name = this.name,
-            img = this.img ?: "", // Provee un default si img puede ser null
-            level = this.level ?: "Desconocido", // Provee un default
-            isFavorite = isFavorite // Se determina externamente
+            img = this.img ?: "",
+            level = normalizedLevel,
+            isFavorite = isFavorite
         )
     }
 
@@ -211,6 +274,59 @@ class DigimonViewModel(
                 .document(digimon.name)
                 .delete()
         }
+    }
+
+    // Agregamos 'name' como parámetro
+    private fun mapTechnicalLevel(level: String?, name: String): String {
+        val trimmedLevel = level?.trim() ?: return "Desconocido"
+
+        // EXCEPCIONES ESPECÍFICAS (Megas que DAPI llama Ultimate)
+        val knownMegas = listOf("Daemon", "HerculesKabuterimon", "Milleniummon")
+        if (name in knownMegas && trimmedLevel.equals("Ultimate", ignoreCase = true)) {
+            return "Mega"
+        }
+
+        return when {
+            // --- FRESH ---
+            trimmedLevel.contains("Fresh", ignoreCase = true) ||
+                    trimmedLevel.equals("Baby I", ignoreCase = true) ||
+                    trimmedLevel.equals("Slime", ignoreCase = true) -> "Fresh"
+
+            // --- IN TRAINING ---
+            trimmedLevel.contains("In Training", ignoreCase = true) ||
+                    trimmedLevel.contains("Training", ignoreCase = true) || // Cubre ambos
+                    trimmedLevel.equals("Baby II", ignoreCase = true) ||
+                    trimmedLevel.equals("Lesser", ignoreCase = true) -> "In Training"
+
+            // --- ROOKIE ---
+            trimmedLevel.equals("Rookie", ignoreCase = true) ||
+                    trimmedLevel.equals("Child", ignoreCase = true) -> "Rookie"
+
+            // --- CHAMPION ---
+            trimmedLevel.equals("Champion", ignoreCase = true) ||
+                    trimmedLevel.equals("Adult", ignoreCase = true) -> "Champion"
+
+            // --- ULTIMATE ---
+            trimmedLevel.equals("Perfect", ignoreCase = true) -> "Ultimate"
+            // Si no es un Mega conocido y dice Ultimate, lo dejamos como Ultimate (Stage 5 occidental)
+            trimmedLevel.equals("Ultimate", ignoreCase = true) -> "Ultimate"
+
+            // --- MEGA ---
+            trimmedLevel.equals("Mega", ignoreCase = true) ||
+                    trimmedLevel.contains("Mega", ignoreCase = true) -> "Mega"
+
+            // --- ARMOR ---
+            trimmedLevel.contains("Armor", ignoreCase = true) -> "Armor"
+
+            else -> trimmedLevel
+        }
+    }
+
+    // Función auxiliar para ayudar al mapeador con los casos ambiguos
+    private fun isActuallyUltimate(level: String): Boolean {
+        // Esta es una lista de seguridad para los niveles oficiales de DigimonAPI
+        val westernLevels = listOf("Fresh", "In-Training", "Rookie", "Champion", "Ultimate", "Mega")
+        return westernLevels.contains(level)
     }
 
     fun loadFavoritesFromFirestore(userId: String) {

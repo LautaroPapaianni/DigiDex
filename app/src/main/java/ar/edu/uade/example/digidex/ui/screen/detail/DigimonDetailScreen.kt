@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import ar.edu.uade.example.digidex.data.db.DigimonDatabase
-import ar.edu.uade.example.digidex.data.model.Digimon // Modelo de UI para pasar a toggleFavorite
 import ar.edu.uade.example.digidex.viewmodel.DigimonDetailViewModel
 import ar.edu.uade.example.digidex.viewmodel.DigimonDetailViewModelFactory
 import ar.edu.uade.example.digidex.viewmodel.DigimonViewModel // El ViewModel principal
